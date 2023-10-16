@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::fmt::Write;
 use std::ops::Deref;
 
@@ -2408,6 +2409,27 @@ fn redraw(
     Ok(())
 }
 
+fn dynamic(
+    cx: &mut compositor::Context,
+    args: &[Cow<str>],
+    event: PromptEvent,
+) -> anyhow::Result<()> {
+    if event != PromptEvent::Validate {
+        return Ok(());
+    }
+
+    if args.is_empty() {
+        return Ok(());
+    }
+
+    let command_name: &str = args[0].borrow();
+    if let Some(command) = typed::TYPABLE_COMMAND_MAP.get(command_name) {
+        (command.fun)(cx, &args[1..], event)
+    } else {
+        Err(anyhow::anyhow!("no such command: '{}'", args[0]))
+    }
+}
+
 pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
     TypableCommand {
         name: "quit",
@@ -3008,6 +3030,13 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
         fun: redraw,
         signature: CommandSignature::none(),
     },
+    TypableCommand {
+        name: "dynamic",
+        aliases: &[],
+        doc: "Run a dynamically generated command",
+        fun: dynamic,
+        signature: CommandSignature::all(completers::filename)
+    }
 ];
 
 pub static TYPABLE_COMMAND_MAP: Lazy<HashMap<&'static str, &'static TypableCommand>> =
